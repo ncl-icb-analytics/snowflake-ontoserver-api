@@ -187,13 +187,52 @@ CREATE OR REPLACE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.ECL_RAW(
   environment STRING DEFAULT 'production1'
 )
 RETURNS VARIANT
-LANGUAGE SQL
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.10'
+HANDLER = 'ecl_raw'
+EXTERNAL_ACCESS_INTEGRATIONS = (onto_api_integration)
+SECRETS = ('cred' = EXTERNAL_ACCESS.ONTOSERVER.onto_oauth_secret)
+PACKAGES = ('requests')
 AS $$
-  SELECT EXTERNAL_ACCESS.ONTOSERVER.API_REQUEST(
-    'ValueSet/$expand',
-    environment,
-    PARSE_JSON('{"url": "http://snomed.info/sct?fhir_vs=ecl/' || REPLACE(REPLACE(REPLACE(ecl_expression, ' ', '%20'), '<', '%3C'), '>', '%3E') || '"}')
-  )
+import _snowflake
+import requests
+from urllib.parse import quote
+
+def ecl_raw(ecl_expression, environment):
+    try:
+        access_token = _snowflake.get_oauth_access_token('cred')
+        
+        if not access_token:
+            return {"error": "Failed to obtain OAuth token"}
+
+        # Properly URL encode the ECL expression
+        encoded_ecl = quote(ecl_expression, safe='')
+        url_param = f"http://snomed.info/sct?fhir_vs=ecl/{encoded_ecl}"
+        
+        base_url = f"https://ontology.onelondon.online/{environment}/fhir"
+        url = f"{base_url}/ValueSet/$expand"
+
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Accept': 'application/fhir+json'
+        }
+        
+        params = {"url": url_param}
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        status_code = getattr(e.response, 'status_code', 'Unknown')
+        response_text = getattr(e.response, 'text', 'No response text')
+        return {
+            "error": "Failed to execute ECL query", 
+            "status_code": status_code,
+            "details": str(e),
+            "response": response_text
+        }
+    except Exception as e:
+        return {"error": "Unexpected error", "details": str(e)}
 $$;
 
 -- =====================================================
