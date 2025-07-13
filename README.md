@@ -23,7 +23,7 @@ This integration leverages Snowflake's External Access capabilities to securely 
 
 - Snowflake account with ACCOUNTADMIN privileges (required for External Access setup)
 - OAuth2 client credentials for Ontoserver API access
-- An existing EXTERNAL_ACCESS database in your Snowflake account
+- A database for hosting the integration (we recommend `EXTERNAL_ACCESS` but any database can be used)
 - Network connectivity to ontology.onelondon.online
 
 ## Setup Instructions
@@ -34,14 +34,18 @@ First, obtain OAuth2 client credentials from your Ontoserver administrator. You'
 - Client ID
 - Client Secret
 
-### 2. Prepare the EXTERNAL_ACCESS Database
+### 2. Prepare Your Database
 
-Ensure you have an EXTERNAL_ACCESS database created:
+Ensure you have a database for the integration. We recommend using `EXTERNAL_ACCESS` for consistency with governance best practices, but you can use any database name:
 
 ```sql
 -- Run as ACCOUNTADMIN if database doesn't exist
 CREATE DATABASE IF NOT EXISTS EXTERNAL_ACCESS;
+-- OR use your preferred database name:
+-- CREATE DATABASE IF NOT EXISTS YOUR_DATABASE_NAME;
 ```
+
+**Note**: If you use a different database name, you'll need to update all references to `EXTERNAL_ACCESS` in the SQL files to match your chosen database name.
 
 ### 3. Configure and Run Setup Script
 
@@ -53,7 +57,9 @@ OAUTH_CLIENT_ID = 'your-client-id-here'
 OAUTH_CLIENT_SECRET = 'your-client-secret-here'
 ```
 
-2. Execute the setup script as ACCOUNTADMIN:
+2. If using a different database name, update all references to `EXTERNAL_ACCESS` in the SQL files.
+
+3. Execute the setup script as ACCOUNTADMIN:
 
 ```sql
 -- Run the entire setup.sql file
@@ -84,6 +90,18 @@ CALL EXTERNAL_ACCESS.ONTOSERVER.TEST_ONTOSERVER_API();
 - Network access is restricted to the Ontoserver domain only
 - Functions use Snowflake's secure external access framework
 - No credentials are exposed in code or logs
+
+### Governance Considerations
+
+We recommend using a dedicated `EXTERNAL_ACCESS` database for hosting external integrations because:
+
+- **Centralized Management**: All external API integrations and their dependencies are in one location
+- **Security Governance**: Easier to audit and manage external network access permissions
+- **Access Control**: Simplified role-based access management for external data sources
+- **Monitoring**: Streamlined tracking of external API usage and costs
+- **Compliance**: Clear separation of external vs internal data sources for regulatory purposes
+
+While you can use any database name, keeping external access integrations together simplifies governance and operational oversight.
 
 ### Function Types
 
