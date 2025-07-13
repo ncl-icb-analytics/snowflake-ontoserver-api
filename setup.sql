@@ -100,10 +100,12 @@ def make_api_request(path, environment, query_params=None):
     except requests.exceptions.RequestException as e:
         # Handle request errors
         error_message = str(e)
+        status_code = getattr(e.response, 'status_code', 'Unknown')
         response_text = getattr(e.response, 'text', 'No response text')
 
         return {
             "error": "API request failed", 
+            "status_code": status_code,
             "details": error_message,
             "response": response_text
         }
@@ -301,8 +303,17 @@ def get_value_set_raw(value_set_id, environment):
         response.raise_for_status()
         
         return response.json()
+    except requests.exceptions.RequestException as e:
+        status_code = getattr(e.response, 'status_code', 'Unknown')
+        response_text = getattr(e.response, 'text', 'No response text')
+        return {
+            "error": "Failed to retrieve ValueSet", 
+            "status_code": status_code,
+            "details": str(e),
+            "response": response_text
+        }
     except Exception as e:
-        return {"error": "Failed to retrieve ValueSet", "details": str(e)}
+        return {"error": "Unexpected error", "details": str(e)}
 $$;
 
 -- ValueSet Search Function
@@ -532,8 +543,17 @@ def get_ecl_raw(ecl_expression, environment):
         response.raise_for_status()
         
         return response.json()
+    except requests.exceptions.RequestException as e:
+        status_code = getattr(e.response, 'status_code', 'Unknown')
+        response_text = getattr(e.response, 'text', 'No response text')
+        return {
+            "error": "Failed to execute ECL query", 
+            "status_code": status_code,
+            "details": str(e),
+            "response": response_text
+        }
     except Exception as e:
-        return {"error": "Failed to execute ECL query", "details": str(e)}
+        return {"error": "Unexpected error", "details": str(e)}
 $$;
 
 -- =====================================================

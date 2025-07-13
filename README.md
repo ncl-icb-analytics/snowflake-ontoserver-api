@@ -1,6 +1,6 @@
 # Snowflake Ontoserver API Integration
 
-This project provides setup scripts and Snowflake functions to integrate with the One London Ontoserver FHIR API, enabling seamless access to terminology services from within Snowflake.
+This project provides setup scripts and Snowflake functions to integrate with One London's Ontoserver FHIR API, enabling seamless access to terminology services from within Snowflake.
 
 ## Overview
 
@@ -46,9 +46,9 @@ CREATE DATABASE IF NOT EXISTS EXTERNAL_ACCESS;
 
 The setup script will automatically create an `ONTOSERVER` schema within your chosen database to contain all schema-level objects.
 
-**Note**: If you use a different database name, find/replace all `EXTERNAL_ACCESS.` (with dot) in the SQL files to match your chosen database name.
+**Note**: If you use a different database name, find/replace `EXTERNAL_ACCESS.` (including the dot) with `YOUR_DATABASE_NAME.` in the SQL files.
 
-**Using a different Ontoserver**: This setup is configured for One London's Ontoserver. To use with another Ontoserver instance, find/replace all `ontology.onelondon.online` with your Ontoserver URL in `setup.sql` and update the OAuth token endpoint. Also verify your Ontoserver uses 'authoring' and 'production1' as environment names, or update these accordingly.
+**Using a different Ontoserver**: This setup is configured for One London's Ontoserver. To use with another Ontoserver instance, find/replace all `ontology.onelondon.online` with your Ontoserver URL in `setup.sql` and update the OAuth token endpoint (line 27: `OAUTH_TOKEN_ENDPOINT`). Also verify your Ontoserver uses 'authoring' and 'production1' as environment names, or update these accordingly.
 
 ### 3. Configure and Run Setup Script
 
@@ -72,7 +72,7 @@ OAUTH_CLIENT_SECRET = 'your-client-secret-here'
 
 The setup script creates these essential components:
 - **Network Rule**: Allows secure connections to ontology.onelondon.online
-- **Security Integration**: Handles OAuth2 authentication with the Ontoserver
+- **Security Integration**: Handles OAuth2 authentication with the Ontoserver API
 - **Secret**: Securely stores OAuth credentials
 - **External Access Integration**: Combines network and authentication rules
 - **Functions**: Complete set of Python and SQL functions for API access
@@ -99,13 +99,9 @@ CALL EXTERNAL_ACCESS.ONTOSERVER.TEST_ONTOSERVER_API();
 
 ### Governance Considerations
 
-We recommend using a dedicated `EXTERNAL_ACCESS` database.
+We recommend using a dedicated `EXTERNAL_ACCESS` database for centralised management, easier access control, and simplified governance.
 
-While you can use any database name, keeping external access integrations together simplifies governance.
-
-All schema-level objects related to this integration will be placed in a `ONTOSERVER` schema.
-
-While you can use any database name, keeping external access integrations together simplifies governance.
+All schema-level objects related to this integration will be placed in an `ONTOSERVER` schema.
 
 ### Function Types
 
@@ -162,7 +158,6 @@ SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009 | Diabetes
 
 **Function parameters:**
 - `environment`: 'authoring' (latest content) or 'production1' (stable, default)
-- All functions return empty results on error
 
 ## ECL Quick Reference
 
