@@ -48,6 +48,8 @@ The setup script will automatically create an `ONTOSERVER` schema within your ch
 
 **Note**: If you use a different database name, find/replace all `EXTERNAL_ACCESS.` (with dot) in the SQL files to match your chosen database name.
 
+**Using a different Ontoserver**: This setup is configured for One London's Ontoserver. To use with another Ontoserver instance, find/replace all `ontology.onelondon.online` with your Ontoserver URL in `setup.sql` and update the OAuth token endpoint. Also verify your Ontoserver uses 'authoring' and 'production1' as environment names, or update these accordingly.
+
 ### 3. Configure and Run Setup Script
 
 1. Edit the `setup.sql` file and update the OAuth credentials:
