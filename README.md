@@ -46,7 +46,7 @@ CREATE DATABASE IF NOT EXISTS EXTERNAL_ACCESS;
 
 The setup script will automatically create an `ONTOSERVER` schema within your chosen database to contain all schema-level objects.
 
-**Note**: If you use a different database name, you'll need to update all references to `EXTERNAL_ACCESS.` in the SQL files to match your chosen database name.
+**Note**: If you use a different database name, find/replace all `EXTERNAL_ACCESS.` (with dot) in the SQL files to match your chosen database name.
 
 ### 3. Configure and Run Setup Script
 
