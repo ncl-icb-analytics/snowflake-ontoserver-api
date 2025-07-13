@@ -131,7 +131,7 @@ API_REQUEST (Python - OAuth, HTTP, ECL encoding)
 - **`ECL_ARRAY/CODES/DETAILS`**: Process `ECL_RAW` JSON into different formats
 
 #### Function Types by Use Case
-1. **Array Functions** (`_ARRAY`): Return arrays for `ARRAY_SIZE()` operations and variable storage
+1. **Array Functions** (`_ARRAY`): Return arrays when you want a list of codes as a single value (e.g. to store as a variable)
 2. **Table Functions** (`_CODES`, `_DETAILS`): Return table rows for JOINs and WHERE IN clauses
 3. **Raw Functions** (`_RAW`): Return complete FHIR JSON responses for debugging/analysis
 4. **Utility Functions**: Helper functions for authentication and debugging
