@@ -24,7 +24,6 @@ This integration leverages Snowflake's External Access capabilities to securely 
 - Snowflake account with ACCOUNTADMIN privileges (required for External Access setup)
 - OAuth2 client credentials for Ontoserver API access
 - A database for hosting the integration (we recommend `EXTERNAL_ACCESS` but any database can be used)
-- Network connectivity to ontology.onelondon.online
 
 ## Setup Instructions
 
