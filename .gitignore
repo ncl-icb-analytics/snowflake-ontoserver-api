@@ -2,39 +2,79 @@
 .env
 .env.local
 .env.production
+.env.*
 
-# Snowflake credentials
+# Snowflake credentials and config
 **/credentials.json
 **/config.toml
+**/connections.toml
+**/.snowflake/
+snowflake.yml
+profiles.yml
+
+# SQL files with actual credentials
+setup-with-credentials.sql
+*-with-creds.sql
+*_with_credentials.sql
+
+# Any files with actual credentials or secrets
+*secret*
+*credential*
+*password*
+*token*
+*key*
+*.pem
+*.p12
+*.pfx
 
 # Logs
 *.log
 logs/
+*.out
 
 # Temporary files
 *.tmp
 *.temp
+*.cache
+.cache/
 
 # IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Backup files
 *.bak
 *.backup
+*.orig
 
-# Any files with actual credentials
-*secret*
-*credential*
-setup-with-credentials.sql
+# Python cache (if using Python for testing/development)
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Node modules (if using any JS tools)
+node_modules/
 
 # Claude
 .claude/
 .claude/*
 CLAUDE.md
+
+# Test outputs and data
+test_results/
+test_data/
+*.test
+*.spec
+
+# Documentation builds
+docs/_build/
+site/
