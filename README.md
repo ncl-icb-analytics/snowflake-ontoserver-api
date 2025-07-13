@@ -103,12 +103,33 @@ We recommend using a dedicated `EXTERNAL_ACCESS` database for centralised manage
 
 All schema-level objects related to this integration will be placed in an `ONTOSERVER` schema.
 
-### Function Types
+### Function Architecture
 
-1. **Array Functions** (`_CODES`): Return simple arrays for IN clause filtering
-2. **Table Functions** (`_DETAILS`): Return structured tables with full metadata
-3. **Raw Functions** (`_RAW`): Return complete FHIR JSON responses
+The functions are organized in a layered architecture for optimal performance and maintainability:
+
+#### Base Layer
+- **`API_REQUEST`**: Core Python function handling OAuth and HTTP requests
+- **`ECL_RAW`**: Python function for ECL queries (requires URL encoding)
+
+#### Processing Layer (SQL functions that process JSON from base layer)
+- **`VS_RAW`**: Calls `API_REQUEST` for ValueSet data
+- **`VS_ARRAY`**: Processes `VS_RAW` JSON into arrays
+- **`VS_CODES`**: Processes `VS_RAW` JSON into table rows
+- **`VS_DETAILS`**: Processes `VS_RAW` JSON into detailed tables
+- **`ECL_ARRAY`**: Processes `ECL_RAW` JSON into arrays  
+- **`ECL_CODES`**: Processes `ECL_RAW` JSON into table rows
+- **`ECL_DETAILS`**: Processes `ECL_RAW` JSON into detailed tables
+
+#### Function Types by Use Case
+1. **Array Functions** (`_ARRAY`): Return arrays for `ARRAY_SIZE()` operations and variable storage
+2. **Table Functions** (`_CODES`, `_DETAILS`): Return table rows for JOINs and WHERE IN clauses
+3. **Raw Functions** (`_RAW`): Return complete FHIR JSON responses for debugging/analysis
 4. **Utility Functions**: Helper functions for authentication and debugging
+
+**Key Design Notes:**
+- ECL queries require Python for proper URL encoding of special characters (`|`, `:`, `=`, etc.)
+- VS functions use SQL for better performance since they don't need complex encoding
+- All functions except `ECL_RAW` build on the shared `API_REQUEST` foundation
 
 ## Available Functions
 
@@ -116,18 +137,20 @@ All schema-level objects related to this integration will be placed in an `ONTOS
 
 | Function | Returns | Description |
 |----------|---------|-------------|
-| `VS_CODES` | Array | Simple array of codes from a ValueSet |
-| `VS_DETAILS` | Table | Structured table with code, display, and system |
-| `VS_RAW` | JSON | Full FHIR ValueSet JSON response |
-| `VS_SEARCH` | Table | Search for ValueSets by name |
+| `VS_ARRAY` | ARRAY | Array of codes for `ARRAY_SIZE()` and variables |
+| `VS_CODES` | TABLE(code) | Table rows of codes for JOINs and WHERE IN |
+| `VS_DETAILS` | TABLE(code, display, system) | Detailed table with full metadata |
+| `VS_RAW` | VARIANT | Full FHIR ValueSet JSON response |
+| `VS_SEARCH` | TABLE(id, url, name, title, status) | Search for ValueSets by name |
 
 ### ECL (Expression Constraint Language) Functions
 
 | Function | Returns | Description |
 |----------|---------|-------------|
-| `ECL_CODES` | Array | Simple array of codes matching ECL expression |
-| `ECL_DETAILS` | Table | Structured table with code, display, and system |
-| `ECL_RAW` | JSON | Full FHIR ValueSet expansion JSON response |
+| `ECL_ARRAY` | ARRAY | Array of codes for `ARRAY_SIZE()` and variables |
+| `ECL_CODES` | TABLE(code) | Table rows of codes for JOINs and WHERE IN |
+| `ECL_DETAILS` | TABLE(code, display, system) | Detailed table with full metadata |
+| `ECL_RAW` | VARIANT | Full FHIR ValueSet expansion JSON response |
 
 ### Utility Functions
 
