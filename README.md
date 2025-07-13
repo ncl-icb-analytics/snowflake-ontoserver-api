@@ -94,6 +94,9 @@ CALL EXTERNAL_ACCESS.ONTOSERVER.TEST_ONTOSERVER_API();
 - Functions use Snowflake's secure external access framework
 - No credentials are exposed in code or logs
 
+#### Interaction Diagram
+<img width="2458" height="1310" alt="image" src="https://github.com/user-attachments/assets/7d2e626a-adf8-4475-8661-db4869f135d7" />
+
 ### Governance Considerations
 
 We recommend using a dedicated `EXTERNAL_ACCESS` database.
