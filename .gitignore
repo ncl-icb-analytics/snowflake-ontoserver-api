@@ -1,0 +1,40 @@
+# Environment files
+.env
+.env.local
+.env.production
+
+# Snowflake credentials
+**/credentials.json
+**/config.toml
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+
+# Any files with actual credentials
+*secret*
+*credential*
+setup-with-credentials.sql
+
+# Claude
+.claude/
+.claude/*
+CLAUDE.md
