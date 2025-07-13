@@ -21,8 +21,8 @@ CREATE OR REPLACE SECURITY INTEGRATION onto_oauth_integration
   TYPE = API_AUTHENTICATION
   AUTH_TYPE = OAUTH2
   OAUTH_CLIENT_AUTH_METHOD = CLIENT_SECRET_POST
-  OAUTH_CLIENT_ID = 'redacted' -- Enter credentials
-  OAUTH_CLIENT_SECRET = 'redacted' -- Enter credentials
+  OAUTH_CLIENT_ID = 'your-client-id-here'
+  OAUTH_CLIENT_SECRET = 'your-client-secret-here'
   OAUTH_GRANT = 'CLIENT_CREDENTIALS'
   OAUTH_TOKEN_ENDPOINT = 'https://ontology.onelondon.online/authorisation/auth/realms/terminology/protocol/openid-connect/token'
   ENABLED = TRUE;
