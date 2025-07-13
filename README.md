@@ -1,6 +1,6 @@
 # Snowflake Ontoserver API Integration
 
-This project provides Snowflake functions to interact with the NHS North Central London (NCL) Ontoserver FHIR API, enabling seamless access to terminology services from within Snowflake.
+This project provides setup scripts and Snowflake functions to integrate with the One London Ontoserver FHIR API, enabling seamless access to terminology services from within Snowflake.
 
 ## Overview
 
@@ -45,7 +45,9 @@ CREATE DATABASE IF NOT EXISTS EXTERNAL_ACCESS;
 -- CREATE DATABASE IF NOT EXISTS YOUR_DATABASE_NAME;
 ```
 
-**Note**: If you use a different database name, you'll need to update all references to `EXTERNAL_ACCESS` in the SQL files to match your chosen database name.
+The setup script will automatically create an `ONTOSERVER` schema within your chosen database to contain all schema-level objects.
+
+**Note**: If you use a different database name, you'll need to update all references to `EXTERNAL_ACCESS.` in the SQL files to match your chosen database name.
 
 ### 3. Configure and Run Setup Script
 
@@ -93,13 +95,11 @@ CALL EXTERNAL_ACCESS.ONTOSERVER.TEST_ONTOSERVER_API();
 
 ### Governance Considerations
 
-We recommend using a dedicated `EXTERNAL_ACCESS` database for hosting external integrations because:
+We recommend using a dedicated `EXTERNAL_ACCESS` database.
 
-- **Centralized Management**: All external API integrations and their dependencies are in one location
-- **Security Governance**: Easier to audit and manage external network access permissions
-- **Access Control**: Simplified role-based access management for external data sources
-- **Monitoring**: Streamlined tracking of external API usage and costs
-- **Compliance**: Clear separation of external vs internal data sources for regulatory purposes
+While you can use any database name, keeping external access integrations together simplifies governance.
+
+All schema-level objects related to this integration will be placed in a `ONTOSERVER` schema.
 
 While you can use any database name, keeping external access integrations together simplifies governance and operational oversight.
 
@@ -136,366 +136,58 @@ While you can use any database name, keeping external access integrations togeth
 | `API_REQUEST` | JSON | General GET request to any Ontoserver endpoint |
 | `DEBUG_AUTH` | JSON | Debug OAuth authentication status |
 
-## Function Reference
+## Basic Usage
 
-### VS_CODES(value_set_id, environment)
-
-Returns a simple array of codes from a ValueSet.
-
-**Parameters:**
-- `value_set_id` (STRING): The ValueSet ID or URL
-- `environment` (STRING): 'authoring' or 'production1' (default: 'production1')
-
-**Returns:** ARRAY of codes
-
-**Example:**
+**ValueSet example:**
 ```sql
-SELECT EXTERNAL_ACCESS.ONTOSERVER.VS_CODES('59a3b2ff-712c-4015-b518-49aab287e535', 'authoring');
--- Returns: ["73211009", "44054006", "46635009", ...]
+-- Get diabetes codes from a ValueSet
+SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.VS_CODES('diabetes-valueset-id'));
+
+-- Get detailed information
+SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.VS_DETAILS('diabetes-valueset-id'));
 ```
 
-**Usage in queries:**
+**ECL example:**
 ```sql
--- Find patients with diabetes codes
-SELECT * 
-FROM patient_diagnoses
-WHERE diagnosis_code IN (EXTERNAL_ACCESS.ONTOSERVER.VS_CODES('diabetes-valueset-id'));
-```
-
-### VS_DETAILS(value_set_id, environment)
-
-Returns detailed information about codes in a ValueSet.
-
-**Parameters:**
-- `value_set_id` (STRING): The ValueSet ID or URL
-- `environment` (STRING): 'authoring' or 'production1' (default: 'production1')
-
-**Returns:** TABLE(code STRING, display STRING, system STRING)
-
-**Example:**
-```sql
-SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.VS_DETAILS('59a3b2ff-712c-4015-b518-49aab287e535', 'authoring'));
-```
-
-**Result:**
-| code | display | system |
-|------|---------|--------|
-| 73211009 | Diabetes mellitus | http://snomed.info/sct |
-| 44054006 | Diabetes mellitus type 2 | http://snomed.info/sct |
-
-**Usage in queries:**
-```sql
--- Enrich patient data with terminology descriptions
-SELECT 
-    pd.patient_id,
-    pd.diagnosis_code,
-    vs.display as diagnosis_name,
-    vs.system
-FROM patient_diagnoses pd
-INNER JOIN TABLE(EXTERNAL_ACCESS.ONTOSERVER.VS_DETAILS('diabetes-valueset-id')) vs
-    ON pd.diagnosis_code = vs.code;
-```
-
-### VS_RAW(value_set_id, environment)
-
-Returns the complete FHIR ValueSet resource as JSON.
-
-**Parameters:**
-- `value_set_id` (STRING): The ValueSet ID or URL
-- `environment` (STRING): 'authoring' or 'production1' (default: 'production1')
-
-**Returns:** VARIANT (JSON object)
-
-**Example:**
-```sql
-SELECT EXTERNAL_ACCESS.ONTOSERVER.VS_RAW('59a3b2ff-712c-4015-b518-49aab287e535', 'authoring');
-```
-
-**Usage:**
-```sql
--- Extract specific metadata from ValueSet
-SELECT 
-    vs_data:id::STRING as valueset_id,
-    vs_data:name::STRING as valueset_name,
-    vs_data:title::STRING as valueset_title,
-    vs_data:status::STRING as status
-FROM (
-    SELECT EXTERNAL_ACCESS.ONTOSERVER.VS_RAW('diabetes-valueset-id') as vs_data
-);
-```
-
-### VS_SEARCH(search_term, environment)
-
-Search for ValueSets by name.
-
-**Parameters:**
-- `search_term` (STRING): Search term to match ValueSet names
-- `environment` (STRING): 'authoring' or 'production1' (default: 'production1')
-
-**Returns:** TABLE(id STRING, url STRING, name STRING, title STRING, status STRING)
-
-**Example:**
-```sql
-SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.VS_SEARCH('diabetes', 'authoring'));
-```
-
-### ECL_CODES(ecl_expression, environment)
-
-Execute a SNOMED CT ECL expression and return matching codes as an array.
-
-**Parameters:**
-- `ecl_expression` (STRING): SNOMED CT Expression Constraint Language expression
-- `environment` (STRING): 'authoring' or 'production1' (default: 'production1')
-
-**Returns:** ARRAY of codes
-
-**Examples:**
-```sql
--- Get all diabetes-related codes
+-- Find all diabetes-related codes using ECL
 SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009 | Diabetes Mellitus |'));
 
--- Specific diabetes types
-SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('
-<< 44054006 | Type 2 Diabetes | OR << 46635009 | Type 1 Diabetes |
-'));
-
--- Include historical concepts (important for legacy data)
-SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009 | Diabetes Mellitus | {{ +HISTORY-MAX }}'));
-
--- Medication queries: Find all medications containing ibuprofen
-SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS('
-* : 10362801000001104 | Has specific active ingredient | = 387207008 | Ibuprofen (substance) |
-'));
+-- Include historical terms for legacy data
+SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009 | Diabetes | {{ +HISTORY-MAX }}'));
 ```
 
-**Usage in queries:**
-```sql
--- Find patients with any type of diabetes
-SELECT * 
-FROM patient_diagnoses
-WHERE diagnosis_code IN (
-    SELECT code FROM TABLE(
-        EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009 | Diabetes Mellitus |')
-    )
-);
-```
+**Function parameters:**
+- `environment`: 'authoring' (latest content) or 'production1' (stable, default)
+- All functions return empty results on error
 
-### ECL_DETAILS(ecl_expression, environment)
+## ECL Quick Reference
 
-Execute ECL expression and return detailed code information.
-
-**Parameters:**
-- `ecl_expression` (STRING): SNOMED CT Expression Constraint Language expression
-- `environment` (STRING): 'authoring' or 'production1' (default: 'production1')
-
-**Returns:** TABLE(code STRING, display STRING, system STRING)
-
-**Examples:**
-```sql
--- Basic descendants query
-SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS('<< 73211009 | Diabetes Mellitus |'));
-
--- Multiple concept types
-SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS('
-<< 44054006 | Type 2 Diabetes | OR << 46635009 | Type 1 Diabetes |
-'));
-
--- Include historical concepts
-SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS('
-<< 73211009 | Diabetes Mellitus | {{ +HISTORY-MAX }}
-'));
-```
-
-### ECL_RAW(ecl_expression, environment)
-
-Execute ECL expression and return the full FHIR expansion response.
-
-**Parameters:**
-- `ecl_expression` (STRING): SNOMED CT Expression Constraint Language expression
-- `environment` (STRING): 'authoring' or 'production1' (default: 'production1')
-
-**Returns:** VARIANT (JSON object)
-
-**Examples:**
-```sql
--- Get full expansion response for diabetes
-SELECT EXTERNAL_ACCESS.ONTOSERVER.ECL_RAW('<< 73211009 | Diabetes Mellitus |');
-
--- Complex query with multiple types
-SELECT EXTERNAL_ACCESS.ONTOSERVER.ECL_RAW('
-<< 44054006 | Type 2 Diabetes | OR << 46635009 | Type 1 Diabetes |
-');
-```
-
-### API_REQUEST(path, environment, query_params)
-
-Low-level function for GET requests to any Ontoserver FHIR endpoint.
-
-**Parameters:**
-- `path` (STRING): API path (e.g., 'metadata', 'ValueSet/123')
-- `environment` (STRING): 'authoring' or 'production1' (default: 'production1')
-- `query_params` (VARIANT): Optional query parameters as JSON object
-
-**Returns:** VARIANT (JSON object)
-
-**Limitations:**
-- **GET requests only** - Cannot perform POST, PUT, DELETE operations
-- **Read-only access** - Cannot create or modify FHIR resources
-- **Restricted access** - May require specific permissions
-
-**Example:**
-```sql
--- Get server metadata
-SELECT EXTERNAL_ACCESS.ONTOSERVER.API_REQUEST('metadata', 'authoring', NULL);
-
--- Get ValueSet with query parameters
-SELECT EXTERNAL_ACCESS.ONTOSERVER.API_REQUEST(
-    'ValueSet', 
-    'authoring', 
-    PARSE_JSON('{"name": "diabetes"}')
-);
-```
-
-## Environments
-
-Two environments are available:
-
-- **authoring**: Latest terminology content under development (primarily for ValueSet operations)
-- **production1**: Stable, production-ready terminology content (default, recommended for ECL queries)
-
-**Environment Usage Guidelines:**
-- **ECL queries**: Use default `production1` for stable SNOMED CT content
-- **ValueSet operations**: Use `authoring` for latest ValueSet definitions, `production1` for stable releases
-- **Production systems**: Always use `production1` for consistent results
-
-## Common ECL Patterns and Examples
-
-For comprehensive examples and advanced usage patterns, see [`usage-examples.sql`](usage-examples.sql).
-
-### Basic ECL Operators
+Common ECL patterns (see [`usage-examples.sql`](usage-examples.sql) for example usage):
 
 | Pattern | Description | Example |
 |---------|-------------|---------|
-| `<< CONCEPTID` | All descendants of concept | `<< 73211009` (all types of diabetes) |
-| `< CONCEPTID` | Direct children only | `< 73211009` (direct subtypes) |
-| `>> CONCEPTID` | All ancestors | `>> 44054006` (all parents of T2DM) |
-| `CONCEPTID1 OR CONCEPTID2` | Either concept | `73211009 OR 44054006` |
-| `<< CONCEPTID {{ +HISTORY-MAX }}` | Include inactive concepts | `<< 73211009 {{ +HISTORY-MAX }}` |
-| `<< CONCEPTID \| Term \|` | Descendants with term | `<< 73211009 \| Diabetes Mellitus \|` |
+| `<< CONCEPTID` | All descendants | `<< 73211009` (all diabetes types) |
 | `CONCEPT1 MINUS CONCEPT2` | Exclude concepts | `<< 73211009 MINUS << 11687002` |
-| `* : RELATIONSHIP = TARGET` | Concepts with specific relationships | `* : 10362801000001104 = 387207008` |
+| `{{ +HISTORY-MAX }}` | Include historical terms | `<< 73211009 {{ +HISTORY-MAX }}` |
+| `* : RELATIONSHIP = TARGET` | Medication queries | `* : 10362801000001104 = << 67866001` |
 
-### Real-World Clinical Examples
+**Resources:**
+- [Usage Examples](usage-examples.sql) - clinical examples using this integration
+- [Shrimp Browser](https://ontoserver.csiro.au/shrimp/launch.html?iss=https://ontology.onelondon.online/authoring/fhir) - ECL builder
+- [NHS Term Browser](https://termbrowser.nhs.uk) - Explore SNOMED CT concepts
 
-**Find all diabetes codes except gestational diabetes:**
-```sql
-SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS('
-<< 73211009 | Diabetes | MINUS << 11687002 | Gestational diabetes |
-'));
-```
+## Testing and Troubleshooting
 
-**Medications containing any type of insulin:**
-```sql
-SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS('
-* : 10362801000001104 | Has specific active ingredient | = << 67866001 | Insulin (substance) |
-'));
-```
-
-**Blood pressure codes including historical terms (for legacy data):**
-```sql
-SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('
-<<271649006 | Systolic BP | {{ +HISTORY-MAX }} OR <<271650006 | Diastolic BP | {{ +HISTORY-MAX }}
-'));
-```
-
-### Additional Resources
-
-- **[Usage Examples](usage-examples.sql)**: Comprehensive examples including medication queries, advanced clinical scenarios, and performance tips
-- **[Shrimp Browser](https://ontoserver.csiro.au/shrimp/launch.html?iss=https://ontology.onelondon.online/authoring/fhir)**: Interactive ECL query builder (login with NHS Mail/Microsoft Account)
-- **[NHS Term Browser](https://termbrowser.nhs.uk)**: Explore SNOMED CT concepts and relationships
-
-## Error Handling
-
-Functions return empty arrays/tables or error objects on failure:
-
-```sql
--- Check for errors
-SELECT 
-    CASE 
-        WHEN result:error IS NOT NULL 
-        THEN 'Error: ' || result:error::STRING 
-        ELSE 'Success' 
-    END as status
-FROM (
-    SELECT EXTERNAL_ACCESS.ONTOSERVER.VS_RAW('invalid-id') as result
-);
-```
-
-## Performance Tips
-
-⚠️ **Important**: The terminology server has a maximum limit of 50,000 codes per request. Queries that would return more will error.
-
-1. **Use appropriate function type**: 
-   - Use `_CODES` functions for simple IN clause lookups (returns table of codes)
-   - Use `_DETAILS` functions for enrichment with display names (returns table with metadata)
-   - Use `_RAW` functions for metadata analysis (returns JSON)
-
-2. **Query optimization**:
-   - For IN clauses: `WHERE code IN (SELECT code FROM TABLE(ECL_CODES(...)))`
-   - For JOINs: `JOIN TABLE(ECL_DETAILS(...)) ON condition`
-
-3. **Cache results**: Store frequently used terminology expansions in tables and refresh regularly
-4. **Batch operations**: Process multiple code sets in single queries where possible
-5. **Environment selection**: Use 'production1' for production workloads, 'authoring' for latest content
-6. **Historical terms**: Include `{{ +HISTORY-MAX }}` when working with legacy data to avoid missing patients
-
-See [`usage-examples.sql`](usage-examples.sql) for detailed performance optimization strategies.
-
-## Creating Views
-
-Create reusable views for common terminology sets:
-
-```sql
--- Create a diabetes codes view using table expansion
-CREATE OR REPLACE VIEW diabetes_codes AS
-SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS('<< 73211009'));
-
--- Use the view for lookups
-SELECT * FROM patient_diagnoses 
-WHERE diagnosis_code IN (SELECT code FROM diabetes_codes);
-
--- Or use the codes function directly (more efficient for ad-hoc queries)
-SELECT * FROM patient_diagnoses 
-WHERE diagnosis_code IN (
-    SELECT code FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009'))
-);
-```
-
-## Testing
-
-Run the comprehensive test procedure:
-
+**Test installation:**
 ```sql
 CALL EXTERNAL_ACCESS.ONTOSERVER.TEST_ONTOSERVER_API();
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-1. **Permission Denied**: Ensure your user has access to the EXTERNAL_ACCESS schema
-2. **Empty Results**: Check ValueSet ID and environment parameter
-3. **Timeout**: Large ValueSets may take time to expand
-
-### Debug Authentication
-
+**Debug authentication:**
 ```sql
 SELECT EXTERNAL_ACCESS.ONTOSERVER.DEBUG_AUTH();
 ```
 
-## Support
+## License
 
-For issues with:
-- **Function errors**: Check test results and debug authentication
-- **SNOMED CT content**: Contact terminology team
-- **Access permissions**: Contact Snowflake administrators
+This repository is dual licensed under the Open Government V3 and MIT Licenses. All output subject to Crown Copyright.
