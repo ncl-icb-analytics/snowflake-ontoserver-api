@@ -43,7 +43,7 @@ CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION onto_api_integration
 -- USER-FACING FUNCTIONS SECTION
 -- =====================================================
 
--- Create Base Helper Function for API calls (kept for backwards compatibility)
+-- Create Base Helper Function for API calls with automatic ECL encoding
 CREATE OR REPLACE SECURE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.API_REQUEST(
   path STRING, 
   environment STRING DEFAULT 'production1',
@@ -60,6 +60,8 @@ AS $$
 import _snowflake
 import requests
 import json
+from urllib.parse import quote
+import re
 
 def make_api_request(path, environment, query_params=None):
     try:
@@ -85,10 +87,20 @@ def make_api_request(path, environment, query_params=None):
             try:
                 if isinstance(query_params, str):
                     params = json.loads(query_params)
+                elif isinstance(query_params, dict):
+                    params = query_params
                 else:
-                    params = dict(query_params) if query_params else None
-            except (TypeError, ValueError):
+                    # For Snowflake VARIANT objects, convert to JSON string first
+                    params = json.loads(json.dumps(query_params))
+            except (TypeError, ValueError, json.JSONDecodeError):
                 params = None
+
+        # Special handling for ECL queries
+        if params and 'ecl_expression' in params:
+            # This is an ECL query - encode the expression and build the URL parameter
+            ecl_expression = params['ecl_expression']
+            encoded_ecl = quote(ecl_expression, safe='')
+            params = {"url": f"http://snomed.info/sct?fhir_vs=ecl/{encoded_ecl}"}
 
         # Make request
         response = requests.get(url, headers=headers, params=params)
@@ -187,52 +199,15 @@ CREATE OR REPLACE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.ECL_RAW(
   environment STRING DEFAULT 'production1'
 )
 RETURNS VARIANT
-LANGUAGE PYTHON
-RUNTIME_VERSION = '3.10'
-HANDLER = 'ecl_raw'
-EXTERNAL_ACCESS_INTEGRATIONS = (onto_api_integration)
-SECRETS = ('cred' = EXTERNAL_ACCESS.ONTOSERVER.onto_oauth_secret)
-PACKAGES = ('requests')
+LANGUAGE SQL
 AS $$
-import _snowflake
-import requests
-from urllib.parse import quote
-
-def ecl_raw(ecl_expression, environment):
-    try:
-        access_token = _snowflake.get_oauth_access_token('cred')
-        
-        if not access_token:
-            return {"error": "Failed to obtain OAuth token"}
-
-        # Properly URL encode the ECL expression
-        encoded_ecl = quote(ecl_expression, safe='')
-        url_param = f"http://snomed.info/sct?fhir_vs=ecl/{encoded_ecl}"
-        
-        base_url = f"https://ontology.onelondon.online/{environment}/fhir"
-        url = f"{base_url}/ValueSet/$expand"
-
-        headers = {
-            'Authorization': f'Bearer {access_token}',
-            'Accept': 'application/fhir+json'
-        }
-        
-        params = {"url": url_param}
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        status_code = getattr(e.response, 'status_code', 'Unknown')
-        response_text = getattr(e.response, 'text', 'No response text')
-        return {
-            "error": "Failed to execute ECL query", 
-            "status_code": status_code,
-            "details": str(e),
-            "response": response_text
-        }
-    except Exception as e:
-        return {"error": "Unexpected error", "details": str(e)}
+  SELECT EXTERNAL_ACCESS.ONTOSERVER.API_REQUEST(
+    'ValueSet/$expand',
+    environment,
+    OBJECT_CONSTRUCT('ecl_expression', 
+      TRIM(REPLACE(REPLACE(ecl_expression, CHR(10), ' '), CHR(13), ' '))
+    )
+  )
 $$;
 
 -- =====================================================

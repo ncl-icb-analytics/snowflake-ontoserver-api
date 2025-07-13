@@ -105,20 +105,30 @@ All schema-level objects related to this integration will be placed in an `ONTOS
 
 ### Function Architecture
 
-The functions are organized in a layered architecture for optimal performance and maintainability:
+The functions are organized in a clean layered architecture:
+
+```
+API_REQUEST (Python - OAuth, HTTP, ECL encoding)
+    ├── VS_RAW (SQL wrapper)
+    │   ├── VS_ARRAY (SQL processor)
+    │   ├── VS_CODES (SQL processor) 
+    │   └── VS_DETAILS (SQL processor)
+    └── ECL_RAW (SQL wrapper)
+        ├── ECL_ARRAY (SQL processor)
+        ├── ECL_CODES (SQL processor)
+        └── ECL_DETAILS (SQL processor)
+```
 
 #### Base Layer
-- **`API_REQUEST`**: Core Python function handling OAuth and HTTP requests
-- **`ECL_RAW`**: Python function for ECL queries (requires URL encoding)
+- **`API_REQUEST`**: Core Python function handling OAuth, HTTP requests, and automatic ECL URL encoding
 
-#### Processing Layer (SQL functions that process JSON from base layer)
+#### Raw Data Layer (SQL wrappers around API_REQUEST)
 - **`VS_RAW`**: Calls `API_REQUEST` for ValueSet data
-- **`VS_ARRAY`**: Processes `VS_RAW` JSON into arrays
-- **`VS_CODES`**: Processes `VS_RAW` JSON into table rows
-- **`VS_DETAILS`**: Processes `VS_RAW` JSON into detailed tables
-- **`ECL_ARRAY`**: Processes `ECL_RAW` JSON into arrays  
-- **`ECL_CODES`**: Processes `ECL_RAW` JSON into table rows
-- **`ECL_DETAILS`**: Processes `ECL_RAW` JSON into detailed tables
+- **`ECL_RAW`**: Calls `API_REQUEST` with ECL expression (automatic URL encoding)
+
+#### Processing Layer (SQL functions that process JSON from raw layer)
+- **`VS_ARRAY/CODES/DETAILS`**: Process `VS_RAW` JSON into different formats
+- **`ECL_ARRAY/CODES/DETAILS`**: Process `ECL_RAW` JSON into different formats
 
 #### Function Types by Use Case
 1. **Array Functions** (`_ARRAY`): Return arrays for `ARRAY_SIZE()` operations and variable storage
@@ -126,10 +136,11 @@ The functions are organized in a layered architecture for optimal performance an
 3. **Raw Functions** (`_RAW`): Return complete FHIR JSON responses for debugging/analysis
 4. **Utility Functions**: Helper functions for authentication and debugging
 
-**Key Design Notes:**
-- ECL queries require Python for proper URL encoding of special characters (`|`, `:`, `=`, etc.)
-- VS functions use SQL for better performance since they don't need complex encoding
-- All functions except `ECL_RAW` build on the shared `API_REQUEST` foundation
+**Key Design Benefits:**
+- Single point for OAuth and HTTP logic in `API_REQUEST`
+- Automatic ECL URL encoding eliminates duplication
+- All functions build on the same foundation for consistency
+- SQL processors are lightweight and fast
 
 ## Available Functions
 
