@@ -42,8 +42,8 @@ BEGIN
     SELECT 
         2,
         'VS_CODES Function',
-        CASE WHEN ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.VS_CODES(:test_vs_id, :test_environment)) > 0 THEN 'PASS' ELSE 'FAIL' END,
-        'Codes found: ' || ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.VS_CODES(:test_vs_id, :test_environment));
+        CASE WHEN ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.VS_ARRAY(:test_vs_id, :test_environment)) > 0 THEN 'PASS' ELSE 'FAIL' END,
+        'Codes found: ' || ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.VS_ARRAY(:test_vs_id, :test_environment));
     
     -- Test 3: VS_DETAILS
     INSERT INTO test_results
@@ -81,13 +81,13 @@ BEGIN
         6,
         'Environment Parameter',
         CASE 
-            WHEN ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.VS_CODES(:test_vs_id, 'production1')) >= 0 
-                 AND ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.VS_CODES(:test_vs_id, 'authoring')) > 0
+            WHEN ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.VS_ARRAY(:test_vs_id, 'production1')) >= 0 
+                 AND ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.VS_ARRAY(:test_vs_id, 'authoring')) > 0
             THEN 'PASS' 
             ELSE 'FAIL' 
         END,
-        'Prod: ' || ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.VS_CODES(:test_vs_id, 'production1')) || 
-        ' codes, Authoring: ' || ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.VS_CODES(:test_vs_id, 'authoring')) || ' codes';
+        'Prod: ' || ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.VS_ARRAY(:test_vs_id, 'production1')) || 
+        ' codes, Authoring: ' || ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.VS_ARRAY(:test_vs_id, 'authoring')) || ' codes';
     
     -- Test 7: ECL Details
     INSERT INTO test_results
@@ -103,11 +103,11 @@ BEGIN
     SELECT 
         8,
         'ECL Codes Function',
-        CASE WHEN ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('< 73211009 | Diabetes mellitus |', :test_environment)) > 0 
+        CASE WHEN ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.ECL_ARRAY('< 73211009 | Diabetes mellitus |', :test_environment)) > 0 
         THEN 'PASS' 
         ELSE 'FAIL' 
         END,
-        'ECL codes found: ' || ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('< 73211009 | Diabetes mellitus |', :test_environment));
+        'ECL codes found: ' || ARRAY_SIZE(EXTERNAL_ACCESS.ONTOSERVER.ECL_ARRAY('< 73211009 | Diabetes mellitus |', :test_environment));
     
     -- Test 9: ECL Raw
     INSERT INTO test_results

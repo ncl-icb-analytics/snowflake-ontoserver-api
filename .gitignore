@@ -78,3 +78,6 @@ test_data/
 # Documentation builds
 docs/_build/
 site/
+
+# Grants
+grants.sql

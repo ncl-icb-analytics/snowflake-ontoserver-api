@@ -162,162 +162,101 @@ def debug_oauth():
         return {"error": "Debug failed", "details": str(e)}
 $$;
 
--- Create VS_CODES a simple array function to return codes in a valueset as an array
-CREATE OR REPLACE SECURE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.VS_CODES(
-  value_set_id STRING, 
-  environment STRING DEFAULT 'production1'
-)
-RETURNS ARRAY
-LANGUAGE PYTHON
-RUNTIME_VERSION = '3.10'
-HANDLER = 'get_codes_from_value_set'
-EXTERNAL_ACCESS_INTEGRATIONS = (onto_api_integration)
-SECRETS = ('cred' = EXTERNAL_ACCESS.ONTOSERVER.onto_oauth_secret)
-PACKAGES = ('requests')
-AS $$
-import _snowflake
-import requests
-import json
-
-def get_codes_from_value_set(value_set_id, environment):
-    try:
-        # Get OAuth token directly
-        access_token = _snowflake.get_oauth_access_token('cred')
-        
-        if not access_token:
-            return []
-
-        # Make API call directly
-        base_url = f"https://ontology.onelondon.online/{environment}/fhir"
-        url = f"{base_url}/ValueSet/{value_set_id}/$expand"
-
-        headers = {
-            'Authorization': f'Bearer {access_token}',
-            'Accept': 'application/fhir+json'
-        }
-
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        
-        result = response.json()
-
-        # Extract just the codes as an array
-        codes = []
-        if isinstance(result, dict) and 'expansion' in result and 'contains' in result['expansion']:
-            for item in result['expansion']['contains']:
-                codes.append(item.get('code', ''))
-
-        return codes
-    except Exception as e:
-        return []  # Return empty array on error
-$$;
-
--- Create detailed function to return a structured table object
-CREATE OR REPLACE SECURE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.VS_DETAILS(
-  value_set_id STRING, 
-  environment STRING DEFAULT 'production1'
-)
-RETURNS TABLE(code STRING, display STRING, system STRING)
-LANGUAGE PYTHON
-RUNTIME_VERSION = '3.10'
-HANDLER = 'get_codes_from_value_set_detailed'
-EXTERNAL_ACCESS_INTEGRATIONS = (onto_api_integration)
-SECRETS = ('cred' = EXTERNAL_ACCESS.ONTOSERVER.onto_oauth_secret)
-PACKAGES = ('requests')
-AS $$
-import _snowflake
-import requests
-import json
-
-class get_codes_from_value_set_detailed:
-    def process(self, value_set_id, environment):
-        try:
-            # Get OAuth token directly
-            access_token = _snowflake.get_oauth_access_token('cred')
-            
-            if not access_token:
-                return  # Return nothing on error
-
-            # Make API call directly
-            base_url = f"https://ontology.onelondon.online/{environment}/fhir"
-            url = f"{base_url}/ValueSet/{value_set_id}/$expand"
-
-            headers = {
-                'Authorization': f'Bearer {access_token}',
-                'Accept': 'application/fhir+json'
-            }
-
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            
-            result = response.json()
-            
-            # Extract codes from the expansion with all details
-            if isinstance(result, dict) and 'expansion' in result and 'contains' in result['expansion']:
-                for item in result['expansion']['contains']:
-                    yield (
-                        item.get('code', ''),
-                        item.get('display', ''),
-                        item.get('system', '')
-                    )
-        except Exception as e:
-            # Return nothing on error
-            return
-$$;
+-- =====================================================
+-- RAW FUNCTIONS (Base functions that return JSON)
+-- =====================================================
 
 -- Function to return a raw JSON response
-CREATE OR REPLACE SECURE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.VS_RAW(
+CREATE OR REPLACE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.VS_RAW(
   value_set_id STRING,
   environment STRING DEFAULT 'production1'
 )
 RETURNS VARIANT
-LANGUAGE PYTHON
-RUNTIME_VERSION = '3.10'
-HANDLER = 'get_value_set_raw'
-EXTERNAL_ACCESS_INTEGRATIONS = (onto_api_integration)
-SECRETS = ('cred' = EXTERNAL_ACCESS.ONTOSERVER.onto_oauth_secret)
-PACKAGES = ('requests')
+LANGUAGE SQL
 AS $$
-import _snowflake
-import requests
-import json
+  SELECT EXTERNAL_ACCESS.ONTOSERVER.API_REQUEST(
+    CONCAT('ValueSet/', value_set_id), 
+    environment, 
+    NULL
+  )
+$$;
 
-def get_value_set_raw(value_set_id, environment):
-    try:
-        # Get OAuth token directly
-        access_token = _snowflake.get_oauth_access_token('cred')
-        
-        if not access_token:
-            return {"error": "Failed to obtain OAuth token"}
+-- ECL Query Raw - Returns full FHIR JSON response for ECL queries
+CREATE OR REPLACE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.ECL_RAW(
+  ecl_expression STRING,
+  environment STRING DEFAULT 'production1'
+)
+RETURNS VARIANT
+LANGUAGE SQL
+AS $$
+  SELECT EXTERNAL_ACCESS.ONTOSERVER.API_REQUEST(
+    'ValueSet/$expand',
+    environment,
+    PARSE_JSON('{"url": "http://snomed.info/sct?fhir_vs=ecl/' || REPLACE(REPLACE(REPLACE(ecl_expression, ' ', '%20'), '<', '%3C'), '>', '%3E') || '"}')
+  )
+$$;
 
-        # Make API call directly
-        base_url = f"https://ontology.onelondon.online/{environment}/fhir"
-        url = f"{base_url}/ValueSet/{value_set_id}"
+-- =====================================================
+-- PROCESSED FUNCTIONS (Functions that process the RAW data)
+-- =====================================================
 
-        headers = {
-            'Authorization': f'Bearer {access_token}',
-            'Accept': 'application/fhir+json'
-        }
+-- Array functions that return actual ARRAYs (useful for storing in variables or passing as parameters)
+CREATE OR REPLACE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.VS_ARRAY(
+  value_set_id STRING, 
+  environment STRING DEFAULT 'production1'
+)
+RETURNS ARRAY
+LANGUAGE SQL
+AS $$
+  SELECT ARRAY_AGG(f.value:code::STRING)
+  FROM TABLE(FLATTEN(EXTERNAL_ACCESS.ONTOSERVER.VS_RAW(CONCAT(value_set_id, '/$expand'), environment):expansion.contains)) f
+  WHERE f.value:code IS NOT NULL
+$$;
 
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        status_code = getattr(e.response, 'status_code', 'Unknown')
-        response_text = getattr(e.response, 'text', 'No response text')
-        return {
-            "error": "Failed to retrieve ValueSet", 
-            "status_code": status_code,
-            "details": str(e),
-            "response": response_text
-        }
-    except Exception as e:
-        return {"error": "Unexpected error", "details": str(e)}
+CREATE OR REPLACE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.ECL_ARRAY(
+  ecl_expression STRING,
+  environment STRING DEFAULT 'production1'
+)
+RETURNS ARRAY
+LANGUAGE SQL
+AS $$
+  SELECT ARRAY_AGG(f.value:code::STRING)
+  FROM TABLE(FLATTEN(EXTERNAL_ACCESS.ONTOSERVER.ECL_RAW(ecl_expression, environment):expansion.contains)) f
+  WHERE f.value:code IS NOT NULL
+$$;
+
+-- Table functions that return rows (useful for JOINs and WHERE IN clauses)
+-- Create VS_CODES a simple table function to return codes from a valueset
+CREATE OR REPLACE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.VS_CODES(
+  value_set_id STRING, 
+  environment STRING DEFAULT 'production1'
+)
+RETURNS TABLE(code STRING)
+LANGUAGE SQL
+AS $$
+  SELECT f.value:code::STRING as code
+  FROM TABLE(FLATTEN(EXTERNAL_ACCESS.ONTOSERVER.VS_RAW(CONCAT(value_set_id, '/$expand'), environment):expansion.contains)) f
+  WHERE f.value:code IS NOT NULL
+$$;
+
+-- Create detailed function to return a structured table object
+CREATE OR REPLACE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.VS_DETAILS(
+  value_set_id STRING, 
+  environment STRING DEFAULT 'production1'
+)
+RETURNS TABLE(code STRING, display STRING, system STRING)
+LANGUAGE SQL
+AS $$
+  SELECT 
+    f.value:code::STRING as code,
+    f.value:display::STRING as display,
+    f.value:system::STRING as system
+  FROM TABLE(FLATTEN(EXTERNAL_ACCESS.ONTOSERVER.VS_RAW(CONCAT(value_set_id, '/$expand'), environment):expansion.contains)) f
+  WHERE f.value:code IS NOT NULL
 $$;
 
 -- ValueSet Search Function
-CREATE OR REPLACE SECURE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.VS_SEARCH(
+CREATE OR REPLACE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.VS_SEARCH(
   search_term STRING,
   environment STRING DEFAULT 'production1'
 )
@@ -375,185 +314,33 @@ class search_value_sets:
             return
 $$;
 
--- ECL Query Function - Returns codes matching an ECL expression
-CREATE OR REPLACE SECURE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS(
+-- ECL Query Function - Returns codes matching an ECL expression with details
+CREATE OR REPLACE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS(
   ecl_expression STRING,
   environment STRING DEFAULT 'production1'
 )
 RETURNS TABLE(code STRING, display STRING, system STRING)
-LANGUAGE PYTHON
-RUNTIME_VERSION = '3.10'
-HANDLER = 'execute_ecl_query'
-EXTERNAL_ACCESS_INTEGRATIONS = (onto_api_integration)
-SECRETS = ('cred' = EXTERNAL_ACCESS.ONTOSERVER.onto_oauth_secret)
-PACKAGES = ('requests', 'urllib3')
+LANGUAGE SQL
 AS $$
-import _snowflake
-import requests
-import json
-from urllib.parse import quote
-
-class execute_ecl_query:
-    def process(self, ecl_expression, environment):
-        try:
-            # Get OAuth token directly
-            access_token = _snowflake.get_oauth_access_token('cred')
-            
-            if not access_token:
-                return  # Return nothing on error
-
-            # URL encode the ECL expression
-            encoded_ecl = quote(ecl_expression, safe='')
-            
-            # Construct the full URL parameter for the ValueSet expansion
-            url_param = f"http://snomed.info/sct?fhir_vs=ecl/{encoded_ecl}"
-            
-            # Make API call directly
-            base_url = f"https://ontology.onelondon.online/{environment}/fhir"
-            url = f"{base_url}/ValueSet/$expand"
-
-            headers = {
-                'Authorization': f'Bearer {access_token}',
-                'Accept': 'application/fhir+json'
-            }
-            
-            params = {"url": url_param}
-
-            response = requests.get(url, headers=headers, params=params)
-            response.raise_for_status()
-            
-            result = response.json()
-            
-            # Extract codes from the expansion
-            if isinstance(result, dict) and 'expansion' in result and 'contains' in result['expansion']:
-                for item in result['expansion']['contains']:
-                    yield (
-                        item.get('code', ''),
-                        item.get('display', ''),
-                        item.get('system', '')
-                    )
-        except Exception as e:
-            # Return nothing on error
-            return
+  SELECT 
+    f.value:code::STRING as code,
+    f.value:display::STRING as display,
+    f.value:system::STRING as system
+  FROM TABLE(FLATTEN(EXTERNAL_ACCESS.ONTOSERVER.ECL_RAW(ecl_expression, environment):expansion.contains)) f
+  WHERE f.value:code IS NOT NULL
 $$;
 
 -- ECL Query Simple - Returns just the codes as an array
-CREATE OR REPLACE SECURE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES(
+CREATE OR REPLACE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES(
   ecl_expression STRING,
   environment STRING DEFAULT 'production1'
 )
-RETURNS ARRAY
-LANGUAGE PYTHON
-RUNTIME_VERSION = '3.10'
-HANDLER = 'get_ecl_codes'
-EXTERNAL_ACCESS_INTEGRATIONS = (onto_api_integration)
-SECRETS = ('cred' = EXTERNAL_ACCESS.ONTOSERVER.onto_oauth_secret)
-PACKAGES = ('requests', 'urllib3')
+RETURNS TABLE(code STRING)
+LANGUAGE SQL
 AS $$
-import _snowflake
-import requests
-import json
-from urllib.parse import quote
-
-def get_ecl_codes(ecl_expression, environment):
-    try:
-        # Get OAuth token directly
-        access_token = _snowflake.get_oauth_access_token('cred')
-        
-        if not access_token:
-            return []
-
-        # URL encode the ECL expression
-        encoded_ecl = quote(ecl_expression, safe='')
-        
-        # Construct the full URL parameter for the ValueSet expansion
-        url_param = f"http://snomed.info/sct?fhir_vs=ecl/{encoded_ecl}"
-        
-        # Make API call directly
-        base_url = f"https://ontology.onelondon.online/{environment}/fhir"
-        url = f"{base_url}/ValueSet/$expand"
-
-        headers = {
-            'Authorization': f'Bearer {access_token}',
-            'Accept': 'application/fhir+json'
-        }
-        
-        params = {"url": url_param}
-
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        
-        result = response.json()
-        
-        # Extract just the codes as an array
-        codes = []
-        if isinstance(result, dict) and 'expansion' in result and 'contains' in result['expansion']:
-            for item in result['expansion']['contains']:
-                codes.append(item.get('code', ''))
-        
-        return codes
-    except Exception as e:
-        return []  # Return empty array on error
-$$;
-
--- ECL Query Raw - Returns full FHIR JSON response for ECL queries
-CREATE OR REPLACE SECURE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.ECL_RAW(
-  ecl_expression STRING,
-  environment STRING DEFAULT 'production1'
-)
-RETURNS VARIANT
-LANGUAGE PYTHON
-RUNTIME_VERSION = '3.10'
-HANDLER = 'get_ecl_raw'
-EXTERNAL_ACCESS_INTEGRATIONS = (onto_api_integration)
-SECRETS = ('cred' = EXTERNAL_ACCESS.ONTOSERVER.onto_oauth_secret)
-PACKAGES = ('requests', 'urllib3')
-AS $$
-import _snowflake
-import requests
-import json
-from urllib.parse import quote
-
-def get_ecl_raw(ecl_expression, environment):
-    try:
-        # Get OAuth token directly
-        access_token = _snowflake.get_oauth_access_token('cred')
-        
-        if not access_token:
-            return {"error": "Failed to obtain OAuth token"}
-
-        # URL encode the ECL expression
-        encoded_ecl = quote(ecl_expression, safe='')
-        
-        # Construct the full URL parameter for the ValueSet expansion
-        url_param = f"http://snomed.info/sct?fhir_vs=ecl/{encoded_ecl}"
-        
-        # Make API call directly
-        base_url = f"https://ontology.onelondon.online/{environment}/fhir"
-        url = f"{base_url}/ValueSet/$expand"
-
-        headers = {
-            'Authorization': f'Bearer {access_token}',
-            'Accept': 'application/fhir+json'
-        }
-        
-        params = {"url": url_param}
-
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        status_code = getattr(e.response, 'status_code', 'Unknown')
-        response_text = getattr(e.response, 'text', 'No response text')
-        return {
-            "error": "Failed to execute ECL query", 
-            "status_code": status_code,
-            "details": str(e),
-            "response": response_text
-        }
-    except Exception as e:
-        return {"error": "Unexpected error", "details": str(e)}
+  SELECT f.value:code::STRING as code
+  FROM TABLE(FLATTEN(EXTERNAL_ACCESS.ONTOSERVER.ECL_RAW(ecl_expression, environment):expansion.contains)) f
+  WHERE f.value:code IS NOT NULL
 $$;
 
 -- =====================================================
