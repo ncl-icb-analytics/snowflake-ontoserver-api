@@ -137,7 +137,7 @@ The functions are organized in a layered architecture for optimal performance an
 
 | Function | Returns | Description |
 |----------|---------|-------------|
-| `VS_ARRAY` | ARRAY | Array of codes for `ARRAY_SIZE()` and variables |
+| `VS_ARRAY` | ARRAY | Array of codes, useful when you want to return a list of codes as a single value, like to set variables |
 | `VS_CODES` | TABLE(code) | Table rows of codes for JOINs and WHERE IN |
 | `VS_DETAILS` | TABLE(code, display, system) | Detailed table with full metadata |
 | `VS_RAW` | VARIANT | Full FHIR ValueSet JSON response |
@@ -147,7 +147,7 @@ The functions are organized in a layered architecture for optimal performance an
 
 | Function | Returns | Description |
 |----------|---------|-------------|
-| `ECL_ARRAY` | ARRAY | Array of codes for `ARRAY_SIZE()` and variables |
+| `ECL_ARRAY` | ARRAY | Array of codes, useful when you want to return a list of codes as a single value, like to set variables |
 | `ECL_CODES` | TABLE(code) | Table rows of codes for JOINs and WHERE IN |
 | `ECL_DETAILS` | TABLE(code, display, system) | Detailed table with full metadata |
 | `ECL_RAW` | VARIANT | Full FHIR ValueSet expansion JSON response |
