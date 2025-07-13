@@ -234,15 +234,20 @@ Execute a SNOMED CT ECL expression and return matching codes as an array.
 **Examples:**
 ```sql
 -- Get all diabetes-related codes
-SELECT EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009 | Diabetes Mellitus |');
+SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009 | Diabetes Mellitus |'));
 
 -- Specific diabetes types
-SELECT EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('
+SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('
 << 44054006 | Type 2 Diabetes | OR << 46635009 | Type 1 Diabetes |
-');
+'));
 
--- Include historical concepts
-SELECT EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009 | Diabetes Mellitus | {{ +HISTORY-MAX }}');
+-- Include historical concepts (important for legacy data)
+SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009 | Diabetes Mellitus | {{ +HISTORY-MAX }}'));
+
+-- Medication queries: Find all medications containing ibuprofen
+SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS('
+* : 10362801000001104 | Has specific active ingredient | = 387207008 | Ibuprofen (substance) |
+'));
 ```
 
 **Usage in queries:**
@@ -250,7 +255,11 @@ SELECT EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009 | Diabetes Mellitus | {
 -- Find patients with any type of diabetes
 SELECT * 
 FROM patient_diagnoses
-WHERE diagnosis_code IN (EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009 | Diabetes Mellitus |'));
+WHERE diagnosis_code IN (
+    SELECT code FROM TABLE(
+        EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009 | Diabetes Mellitus |')
+    )
+);
 ```
 
 ### ECL_DETAILS(ecl_expression, environment)
@@ -341,7 +350,11 @@ Two environments are available:
 - **ValueSet operations**: Use `authoring` for latest ValueSet definitions, `production1` for stable releases
 - **Production systems**: Always use `production1` for consistent results
 
-## Common ECL Patterns
+## Common ECL Patterns and Examples
+
+For comprehensive examples and advanced usage patterns, see [`usage-examples.sql`](usage-examples.sql).
+
+### Basic ECL Operators
 
 | Pattern | Description | Example |
 |---------|-------------|---------|
@@ -351,36 +364,37 @@ Two environments are available:
 | `CONCEPTID1 OR CONCEPTID2` | Either concept | `73211009 OR 44054006` |
 | `<< CONCEPTID {{ +HISTORY-MAX }}` | Include inactive concepts | `<< 73211009 {{ +HISTORY-MAX }}` |
 | `<< CONCEPTID \| Term \|` | Descendants with term | `<< 73211009 \| Diabetes Mellitus \|` |
-| `CONCEPT1 OR CONCEPT2` | Multiple concepts | `<< 44054006 \| Type 2 Diabetes \| OR << 46635009 \| Type 1 Diabetes \|` |
+| `CONCEPT1 MINUS CONCEPT2` | Exclude concepts | `<< 73211009 MINUS << 11687002` |
+| `* : RELATIONSHIP = TARGET` | Concepts with specific relationships | `* : 10362801000001104 = 387207008` |
 
-### Advanced ECL Examples
+### Real-World Clinical Examples
 
-**Basic diabetes descendants:**
-```sql
-SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS('<< 73211009 | Diabetes Mellitus |'));
-```
-
-**Specific diabetes types:**
+**Find all diabetes codes except gestational diabetes:**
 ```sql
 SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS('
-<< 44054006 | Type 2 Diabetes | OR << 46635009 | Type 1 Diabetes |
+<< 73211009 | Diabetes | MINUS << 11687002 | Gestational diabetes |
 '));
 ```
 
-**Include inactive/historical concepts:**
+**Medications containing any type of insulin:**
 ```sql
 SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS('
-<< 73211009 | Diabetes Mellitus | {{ +HISTORY-MAX }}
+* : 10362801000001104 | Has specific active ingredient | = << 67866001 | Insulin (substance) |
 '));
 ```
 
-**Complex expressions with attributes:**
+**Blood pressure codes including historical terms (for legacy data):**
 ```sql
--- Diabetes with specific finding sites
-SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS('
-<< 73211009 | Diabetes Mellitus | : 363698007 | Finding site | = << 113331007 | Endocrine system |
+SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('
+<<271649006 | Systolic BP | {{ +HISTORY-MAX }} OR <<271650006 | Diastolic BP | {{ +HISTORY-MAX }}
 '));
 ```
+
+### Additional Resources
+
+- **[Usage Examples](usage-examples.sql)**: Comprehensive examples including medication queries, advanced clinical scenarios, and performance tips
+- **[Shrimp Browser](https://ontoserver.csiro.au/shrimp/launch.html?iss=https://ontology.onelondon.online/authoring/fhir)**: Interactive ECL query builder (login with NHS Mail/Microsoft Account)
+- **[NHS Term Browser](https://termbrowser.nhs.uk)**: Explore SNOMED CT concepts and relationships
 
 ## Error Handling
 
@@ -401,18 +415,23 @@ FROM (
 
 ## Performance Tips
 
+⚠️ **Important**: The terminology server has a maximum limit of 50,000 codes per request. Queries that would return more will error.
+
 1. **Use appropriate function type**: 
-   - Use `_CODES` functions for simple IN clause lookups (returns array)
-   - Use `_DETAILS` functions for enrichment with display names (returns table)
+   - Use `_CODES` functions for simple IN clause lookups (returns table of codes)
+   - Use `_DETAILS` functions for enrichment with display names (returns table with metadata)
    - Use `_RAW` functions for metadata analysis (returns JSON)
 
-2. **Array vs Table functions**:
-   - For IN clauses: Use arrays directly: `WHERE code IN (VS_CODES(...))`
-   - For JOINs: Use table functions: `JOIN TABLE(VS_DETAILS(...))`
+2. **Query optimization**:
+   - For IN clauses: `WHERE code IN (SELECT code FROM TABLE(ECL_CODES(...)))`
+   - For JOINs: `JOIN TABLE(ECL_DETAILS(...)) ON condition`
 
-3. **Cache results**: Store frequently used ValueSet expansions in tables
-4. **Batch operations**: Process multiple codes in single queries where possible
-5. **Environment selection**: Use 'production1' for production workloads
+3. **Cache results**: Store frequently used terminology expansions in tables and refresh regularly
+4. **Batch operations**: Process multiple code sets in single queries where possible
+5. **Environment selection**: Use 'production1' for production workloads, 'authoring' for latest content
+6. **Historical terms**: Include `{{ +HISTORY-MAX }}` when working with legacy data to avoid missing patients
+
+See [`usage-examples.sql`](usage-examples.sql) for detailed performance optimization strategies.
 
 ## Creating Views
 
@@ -427,9 +446,11 @@ SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS('<< 73211009'));
 SELECT * FROM patient_diagnoses 
 WHERE diagnosis_code IN (SELECT code FROM diabetes_codes);
 
--- Or use the array function directly (more efficient)
+-- Or use the codes function directly (more efficient for ad-hoc queries)
 SELECT * FROM patient_diagnoses 
-WHERE diagnosis_code IN (EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009'));
+WHERE diagnosis_code IN (
+    SELECT code FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009'))
+);
 ```
 
 ## Testing

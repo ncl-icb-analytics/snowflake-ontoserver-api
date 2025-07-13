@@ -37,4 +37,3 @@ setup-with-credentials.sql
 # Claude
 .claude/
 .claude/*
-CLAUDE.md
