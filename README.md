@@ -100,7 +100,7 @@ While you can use any database name, keeping external access integrations togeth
 
 All schema-level objects related to this integration will be placed in a `ONTOSERVER` schema.
 
-While you can use any database name, keeping external access integrations together simplifies governance and operational oversight.
+While you can use any database name, keeping external access integrations together simplifies governance.
 
 ### Function Types
 
