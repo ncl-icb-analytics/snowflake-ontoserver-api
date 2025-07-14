@@ -167,7 +167,8 @@ API_REQUEST (Python - OAuth, HTTP, ECL encoding)
 
 | Function | Returns | Description |
 |----------|---------|-------------|
-| `LOOKUP_SCT` | VARIANT | Detailed metadata about a SNOMED CT concept including relationships, designations, and properties |
+| `LOOKUP_SCT` | TABLE(concept_code, display, system_name, system, version, is_active, sufficiently_defined, effective_time, module_id, property_type, property_display, property_value, property_value_display, designation_language, designation_use_code, designation_use_display, designation_value) | Detailed metadata about a SNOMED CT concept with human-readable relationship names |
+| `LOOKUP_SCT_RAW` | VARIANT | Raw FHIR JSON response from CodeSystem/$lookup operation |
 
 ### Utility Functions
 
@@ -198,10 +199,11 @@ SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009 | Diabetes
 
 **Concept lookup example:**
 ```sql
--- Get detailed metadata about a specific concept
-SELECT EXTERNAL_ACCESS.ONTOSERVER.LOOKUP_SCT('73211009');
+-- Get detailed metadata about a specific concept with human-readable names
+SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.LOOKUP_SCT('447899008')); -- Sepsis due to E. coli
 
--- Returns parents, children, designations, properties, and more
+-- Get raw FHIR JSON response
+SELECT EXTERNAL_ACCESS.ONTOSERVER.LOOKUP_SCT_RAW('447899008');
 ```
 
 **Function parameters:**
