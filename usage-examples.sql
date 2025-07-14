@@ -188,6 +188,20 @@ FROM TABLE(
    )
 ); -- this is helpful for fine tuning results that are difficult to get specific enough with the model queries
 
+-- Concept Lookup and Search
+-- ======================================
+-- You can look up a specific SNOMED concept to get metadata about it and its relationships
+-- Note that this only supports querying for a single concept and returns immediate relationships
+-- The table format shows both codes and human-readable display names
+SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.LOOKUP_SCT('447899008')); -- Sepsis due to E. coli
+
+-- You can access the raw JSON response too for programmatic use
+SELECT EXTERNAL_ACCESS.ONTOSERVER.LOOKUP_SCT_RAW('447899008');
+
+-- Filter to see just the relationships
+SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.LOOKUP_SCT('447899008')) 
+WHERE property_display IS NOT NULL;
+
 --  Performance tips for large or frequent use:
 -- 1. Cache results to a table
 --    Remember to refresh those tables regularly from a procedure or create a Dynamic Table to keep them fresh.

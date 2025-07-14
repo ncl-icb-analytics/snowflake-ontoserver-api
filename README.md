@@ -163,6 +163,12 @@ API_REQUEST (Python - OAuth, HTTP, ECL encoding)
 | `ECL_DETAILS` | TABLE(code, display, system) | Detailed table with full metadata |
 | `ECL_RAW` | VARIANT | Full FHIR ValueSet expansion JSON response |
 
+### Concept Lookup Functions
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `LOOKUP_SCT` | VARIANT | Detailed metadata about a SNOMED CT concept including relationships, designations, and properties |
+
 ### Utility Functions
 
 | Function | Returns | Description |
@@ -188,6 +194,14 @@ SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009 | Diabetes
 
 -- Include historical terms for legacy data
 SELECT * FROM TABLE(EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES('<< 73211009 | Diabetes | {{ +HISTORY-MAX }}'));
+```
+
+**Concept lookup example:**
+```sql
+-- Get detailed metadata about a specific concept
+SELECT EXTERNAL_ACCESS.ONTOSERVER.LOOKUP_SCT('73211009');
+
+-- Returns parents, children, designations, properties, and more
 ```
 
 **Function parameters:**

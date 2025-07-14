@@ -358,6 +358,147 @@ AS $$
 $$;
 
 -- =====================================================
+-- CONCEPT LOOKUP FUNCTIONS
+-- =====================================================
+
+-- SNOMED CT Concept Lookup - Returns detailed metadata about a specific SNOMED concept (raw JSON)
+CREATE OR REPLACE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.LOOKUP_SCT_RAW(
+  code STRING,
+  environment STRING DEFAULT 'production1'
+)
+RETURNS VARIANT
+LANGUAGE SQL
+AS $$
+  SELECT EXTERNAL_ACCESS.ONTOSERVER.API_REQUEST(
+    'CodeSystem/$lookup',
+    environment,
+    OBJECT_CONSTRUCT('code', code, 'system', 'http://snomed.info/sct', 'property', '*')
+  )
+$$;
+
+-- SNOMED CT Concept Lookup - Returns flattened table with concept details and display names
+CREATE OR REPLACE FUNCTION EXTERNAL_ACCESS.ONTOSERVER.LOOKUP_SCT(
+  code STRING,
+  environment STRING DEFAULT 'production1'
+)
+RETURNS TABLE(
+  concept_code STRING,
+  display STRING,
+  system_name STRING,
+  system STRING,
+  version STRING,
+  is_active BOOLEAN,
+  sufficiently_defined BOOLEAN,
+  effective_time STRING,
+  module_id STRING,
+  property_type STRING,
+  property_display STRING,
+  property_value STRING,
+  property_value_display STRING,
+  designation_language STRING,
+  designation_use_code STRING,
+  designation_use_display STRING,
+  designation_value STRING
+)
+LANGUAGE SQL
+AS $$
+  WITH lookup_result AS (
+    SELECT EXTERNAL_ACCESS.ONTOSERVER.LOOKUP_SCT_RAW(code, environment) as result
+  ),
+  flattened_params AS (
+    SELECT 
+      result:parameter[0].valueCode::STRING as concept_code,
+      result:parameter[1].valueString::STRING as display,
+      result:parameter[2].valueString::STRING as system_name,
+      result:parameter[3].valueUri::STRING as system,
+      result:parameter[4].valueString::STRING as version,
+      p.value:name::STRING as param_name,
+      p.value:part[0].valueCode::STRING as part_code,
+      p.value:part[1].valueCode::STRING as part_value_code,
+      p.value:part[1].valueBoolean::BOOLEAN as part_value_boolean,
+      p.value:part[1].valueString::STRING as part_value_string
+    FROM lookup_result,
+    LATERAL FLATTEN(result:parameter) p
+  ),
+  base_info AS (
+    SELECT 
+      concept_code, display, system_name, system, version,
+      MAX(CASE WHEN param_name = 'property' AND part_code = 'inactive' THEN NOT part_value_boolean END) as is_active,
+      MAX(CASE WHEN param_name = 'property' AND part_code = 'sufficientlyDefined' THEN part_value_boolean END) as sufficiently_defined,
+      MAX(CASE WHEN param_name = 'property' AND part_code = 'effectiveTime' THEN part_value_string END) as effective_time,
+      MAX(CASE WHEN param_name = 'property' AND part_code = 'moduleId' THEN part_value_code END) as module_id,
+      MAX(CASE WHEN param_name = 'property' AND part_code = 'normalForm' THEN part_value_string END) as normal_form
+    FROM flattened_params
+    GROUP BY concept_code, display, system_name, system, version
+  ),
+  -- Simple properties (parent, child)
+  properties AS (
+    SELECT 
+      bi.concept_code, bi.display, bi.system_name, bi.system, bi.version,
+      bi.is_active, bi.sufficiently_defined, bi.effective_time, bi.module_id,
+      fp.part_code as property_type,
+      CASE fp.part_code
+        WHEN 'parent' THEN 'Parent'
+        WHEN 'child' THEN 'Child'
+        ELSE fp.part_code
+      END as property_display,
+      fp.part_value_code as property_value,
+      REGEXP_SUBSTR(bi.normal_form, fp.part_value_code || '\\|([^|]+)\\|', 1, 1, 'e', 1) as property_value_display,
+      NULL as designation_language,
+      NULL as designation_use_code,
+      NULL as designation_use_display,
+      NULL as designation_value
+    FROM base_info bi
+    JOIN flattened_params fp ON bi.concept_code = fp.concept_code
+    WHERE fp.param_name = 'property'
+    AND fp.part_code IN ('parent', 'child')
+  ),
+  -- Complex relationships from subproperties
+  complex_properties AS (
+    SELECT 
+      bi.concept_code, bi.display, bi.system_name, bi.system, bi.version,
+      bi.is_active, bi.sufficiently_defined, bi.effective_time, bi.module_id,
+      sp.value:part[0].valueCode::STRING as property_type,
+      REGEXP_SUBSTR(bi.normal_form, sp.value:part[0].valueCode::STRING || '\\|([^|]+)\\|', 1, 1, 'e', 1) as property_display,
+      sp.value:part[1].valueCode::STRING as property_value,
+      REGEXP_SUBSTR(bi.normal_form, sp.value:part[1].valueCode::STRING || '\\|([^|]+)\\|', 1, 1, 'e', 1) as property_value_display,
+      NULL as designation_language,
+      NULL as designation_use_code,
+      NULL as designation_use_display,
+      NULL as designation_value
+    FROM base_info bi, lookup_result lr,
+    LATERAL FLATTEN(lr.result:parameter) p,
+    LATERAL FLATTEN(p.value:part) sp
+    WHERE p.value:name::STRING = 'property' 
+    AND p.value:part[0].valueCode::STRING = '609096000'
+    AND sp.value:name::STRING = 'subproperty'
+  ),
+  -- Designations
+  designations AS (
+    SELECT 
+      bi.concept_code, bi.display, bi.system_name, bi.system, bi.version,
+      bi.is_active, bi.sufficiently_defined, bi.effective_time, bi.module_id,
+      NULL as property_type,
+      NULL as property_display,
+      NULL as property_value,
+      NULL as property_value_display,
+      d.value:part[0].valueCode::STRING as designation_language,
+      d.value:part[1].valueCoding.code::STRING as designation_use_code,
+      d.value:part[1].valueCoding.display::STRING as designation_use_display,
+      d.value:part[2].valueString::STRING as designation_value
+    FROM base_info bi, lookup_result lr,
+    LATERAL FLATTEN(lr.result:parameter) d
+    WHERE d.value:name::STRING = 'designation'
+  )
+  SELECT * FROM properties
+  UNION ALL
+  SELECT * FROM complex_properties
+  UNION ALL
+  SELECT * FROM designations
+$$;
+
+
+-- =====================================================
 -- USAGE EXAMPLES
 -- =====================================================
 -- Example 1: Using VS_CODES in an IN clause
