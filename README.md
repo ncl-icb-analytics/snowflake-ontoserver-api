@@ -64,9 +64,7 @@ OAUTH_CLIENT_SECRET = 'your-client-secret-here'
 
 3. Execute the setup script as ACCOUNTADMIN:
 
-```sql
--- Run the entire setup.sql file
-```
+Run the entire `setup.sql` file
 
 ### 4. Created Snowflake Objects
 
