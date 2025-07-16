@@ -103,7 +103,7 @@ All schema-level objects related to this integration will be placed in an `ONTOS
 
 ### Function Architecture
 
-The functions are organized in a clean layered architecture:
+The functions are organised in a clean layered architecture:
 
 ```
 API_REQUEST (Python - OAuth, HTTP, ECL encoding)
