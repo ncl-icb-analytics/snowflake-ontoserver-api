@@ -64,6 +64,8 @@ OAUTH_CLIENT_SECRET = 'your-client-secret-here'
 
 3. Execute the setup script as `ACCOUNTADMIN`
 
+4. `GRANT` access to the functions to the relevant roles in your organsiation.
+
 ### 4. Created Snowflake Objects
 
 The setup script creates these essential components:
