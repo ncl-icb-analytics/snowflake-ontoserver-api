@@ -168,7 +168,7 @@ API_REQUEST (Python - OAuth, HTTP, ECL encoding)
 
 **Key Design Benefits:**
 - Single point for OAuth and HTTP logic in `API_REQUEST`
-- Automatic ECL URL encoding eliminates duplication
+- Automatic ECL URL encoding handles complex expressions and whitespace
 - All functions build on the same foundation for consistency
 - SQL processors are lightweight and fast
 
