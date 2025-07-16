@@ -248,7 +248,7 @@ Common ECL patterns (see [`usage-examples.sql`](usage-examples.sql) for example 
 | `<< CONCEPTID` | All descendants | `<< 73211009` (all diabetes types) |
 | `CONCEPT1 MINUS CONCEPT2` | Exclude concepts | `<< 73211009 MINUS << 11687002` |
 | `{{ +HISTORY-MAX }}` | Include historical terms | `<< 73211009 {{ +HISTORY-MAX }}` |
-| `* : RELATIONSHIP = TARGET` | Medication queries | `* : 10362801000001104 = << 67866001` |
+| `* : RELATIONSHIP = TARGET` | Relationship queries | `* : 10362801000001104 = << 67866001` |
 
 **Resources:**
 - [Usage Examples](usage-examples.sql) - clinical examples using this integration
