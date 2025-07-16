@@ -64,6 +64,8 @@ OAUTH_CLIENT_SECRET = 'your-client-secret-here'
 
 3. Execute the setup script as `ACCOUNTADMIN`
 
+4. Run `tests-procedure.sql` to create and call the test procedure to check that everything is working correctly.
+
 ### 4. Grant Access to Users
 
 After setup, grant access to users who need to use the Ontoserver functions:
