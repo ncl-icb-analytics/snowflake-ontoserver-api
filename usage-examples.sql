@@ -188,7 +188,7 @@ FROM TABLE(
    )
 ); -- this is helpful for fine tuning results that are difficult to get specific enough with the model queries
 
--- Concept Lookup and Search
+-- Concept Lookup
 -- ======================================
 -- You can look up a specific SNOMED concept to get metadata about it and its relationships
 -- Note that this only supports querying for a single concept and returns immediate relationships
