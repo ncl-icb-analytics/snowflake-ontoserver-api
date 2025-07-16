@@ -62,9 +62,7 @@ OAUTH_CLIENT_SECRET = 'your-client-secret-here'
 
 2. If using a different database name, update all references to `EXTERNAL_ACCESS` in the SQL files.
 
-3. Execute the setup script as ACCOUNTADMIN:
-
-Run the entire `setup.sql` file
+3. Execute the setup script as `ACCOUNTADMIN`
 
 ### 4. Created Snowflake Objects
 
