@@ -64,7 +64,20 @@ OAUTH_CLIENT_SECRET = 'your-client-secret-here'
 
 3. Execute the setup script as `ACCOUNTADMIN`
 
-4. `GRANT` access to the functions to the relevant roles in your organsiation.
+4. Users need `USAGE` grants on:
+
+- The database (if not already granted)
+- The schema (EXTERNAL_ACCESS.ONTOSERVER)
+- The functions within the schema
+
+Users do `NOT` need grants on the secure objects:
+
+- External access integration
+- Network rule
+- Security integration
+- Secret
+
+This is because these secure objects are referenced by the functions themselves and are automatically available when the functions execute. This keeps the OAuth credentials and network access rules secure while still allowing users to call the functions.
 
 ### 4. Created Snowflake Objects
 
