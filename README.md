@@ -35,7 +35,7 @@ First, obtain OAuth2 client credentials from your Ontoserver administrator. You'
 
 ### 2. Prepare Your Database
 
-Ensure you have a database for the integration. We recommend using `EXTERNAL_ACCESS` for consistency with governance best practices, but you can use any database name:
+Ensure you have a database for the integration. We recommend using `EXTERNAL_ACCESS` to keep all external access integrations organised in one place, with separate schemas for each integration (e.g., `EXTERNAL_ACCESS.ONTOSERVER`, `EXTERNAL_ACCESS.ANOTHER_API`):
 
 ```sql
 -- Run as ACCOUNTADMIN if database doesn't exist
@@ -94,12 +94,6 @@ CALL EXTERNAL_ACCESS.ONTOSERVER.TEST_ONTOSERVER_API();
 
 #### Interaction Diagram
 <img width="2458" height="1310" alt="image" src="https://github.com/user-attachments/assets/7d2e626a-adf8-4475-8661-db4869f135d7" />
-
-### Governance Considerations
-
-We recommend using a dedicated `EXTERNAL_ACCESS` database for centralised management, easier access control, and simplified governance.
-
-All schema-level objects related to this integration will be placed in an `ONTOSERVER` schema.
 
 ### Function Architecture
 
