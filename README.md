@@ -64,22 +64,45 @@ OAUTH_CLIENT_SECRET = 'your-client-secret-here'
 
 3. Execute the setup script as `ACCOUNTADMIN`
 
-4. Users need `USAGE` grants on:
+### 4. Grant Access to Users
 
-- The database (if not already granted)
-- The schema (EXTERNAL_ACCESS.ONTOSERVER)
-- The functions within the schema
+After setup, grant access to users who need to use the Ontoserver functions:
 
-Users do `NOT` need grants on the secure objects:
+```sql
+-- Grant usage on the database (if not already granted)
+GRANT USAGE ON DATABASE EXTERNAL_ACCESS TO ROLE <your_role>;
 
-- External access integration
-- Network rule
-- Security integration
-- Secret
+-- Grant usage on the schema
+GRANT USAGE ON SCHEMA EXTERNAL_ACCESS.ONTOSERVER TO ROLE <your_role>;
 
-This is because these secure objects are referenced by the functions themselves and are automatically available when the functions execute. This keeps the OAuth credentials and network access rules secure while still allowing users to call the functions.
+-- Grant usage on each function
+GRANT USAGE ON FUNCTION EXTERNAL_ACCESS.ONTOSERVER.API_REQUEST(STRING, STRING, VARIANT) TO ROLE <your_role>;
+GRANT USAGE ON FUNCTION EXTERNAL_ACCESS.ONTOSERVER.DEBUG_AUTH() TO ROLE <your_role>;
+GRANT USAGE ON FUNCTION EXTERNAL_ACCESS.ONTOSERVER.VS_RAW(STRING, STRING) TO ROLE <your_role>;
+GRANT USAGE ON FUNCTION EXTERNAL_ACCESS.ONTOSERVER.VS_ARRAY(STRING, STRING) TO ROLE <your_role>;
+GRANT USAGE ON FUNCTION EXTERNAL_ACCESS.ONTOSERVER.VS_CODES(STRING, STRING) TO ROLE <your_role>;
+GRANT USAGE ON FUNCTION EXTERNAL_ACCESS.ONTOSERVER.VS_DETAILS(STRING, STRING) TO ROLE <your_role>;
+GRANT USAGE ON FUNCTION EXTERNAL_ACCESS.ONTOSERVER.VS_SEARCH(STRING, STRING) TO ROLE <your_role>;
+GRANT USAGE ON FUNCTION EXTERNAL_ACCESS.ONTOSERVER.ECL_RAW(STRING, STRING) TO ROLE <your_role>;
+GRANT USAGE ON FUNCTION EXTERNAL_ACCESS.ONTOSERVER.ECL_ARRAY(STRING, STRING) TO ROLE <your_role>;
+GRANT USAGE ON FUNCTION EXTERNAL_ACCESS.ONTOSERVER.ECL_CODES(STRING, STRING) TO ROLE <your_role>;
+GRANT USAGE ON FUNCTION EXTERNAL_ACCESS.ONTOSERVER.ECL_DETAILS(STRING, STRING) TO ROLE <your_role>;
+GRANT USAGE ON FUNCTION EXTERNAL_ACCESS.ONTOSERVER.LOOKUP_SCT(STRING, STRING) TO ROLE <your_role>;
+GRANT USAGE ON FUNCTION EXTERNAL_ACCESS.ONTOSERVER.LOOKUP_SCT_RAW(STRING, STRING) TO ROLE <your_role>;
 
-### 4. Created Snowflake Objects
+-- Grant usage on the test procedure
+GRANT USAGE ON PROCEDURE EXTERNAL_ACCESS.ONTOSERVER.TEST_ONTOSERVER_API() TO ROLE <your_role>;
+```
+
+**Important Security Note**: Users do NOT need (and should not be granted) access to:
+- External access integration (`onto_api_integration`)
+- Network rule (`onto_api_rule`)
+- Security integration (`onto_oauth_integration`)
+- Secret (`onto_oauth_secret`)
+
+These secure objects are automatically used by the functions that reference them, keeping OAuth credentials and network access rules secure while allowing authorised users to query the Ontoserver.
+
+### 5. Created Snowflake Objects
 
 The setup script creates these essential components:
 - **Network Rule**: Allows secure connections to ontology.onelondon.online
@@ -88,7 +111,7 @@ The setup script creates these essential components:
 - **External Access Integration**: Combines network and authentication rules
 - **Functions**: Complete set of Python and SQL functions for API access
 
-### 5. Verify Installation
+### 6. Verify Installation
 
 Run the test procedure to verify everything is working:
 
