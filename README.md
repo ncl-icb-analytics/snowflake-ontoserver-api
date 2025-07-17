@@ -27,7 +27,7 @@ This integration leverages Snowflake's External Access capabilities to securely 
 
 ## Setup Instructions
 
-### 1. Configure OAuth Credentials
+### 1. Obtain OAuth Credentials
 
 First, obtain OAuth2 client credentials from your Ontoserver administrator. You'll need:
 - Client ID
