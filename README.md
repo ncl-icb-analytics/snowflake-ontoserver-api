@@ -115,7 +115,7 @@ The setup script creates these essential components:
 
 ### 6. Verify Installation
 
-Run the test procedure to verify everything is working:
+Run the test procedure using a end-user role to verify everything is working:
 
 ```sql
 CALL EXTERNAL_ACCESS.ONTOSERVER.TEST_ONTOSERVER_API();
